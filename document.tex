@@ -1,0 +1,109 @@
+\documentclass[]{article}
+\usepackage{bytefield}
+\usepackage{geometry}
+
+\geometry{a4paper, margin=1.4in}
+
+% Título y autores
+\title{Protocolo IPv6}
+\author{Santiago Ferrer Petit, Manuel García de la Vega}
+
+\begin{document}
+	
+	\maketitle
+	
+	\section{\textbf{IPv6 SLAAC and EUI-64 Basics}}
+	
+	\subsection{\textbf{Configuración del router en IPv6}}
+	
+	Al buscar la LLA en la configuración de la PC0, encontramos que su dirección IPv6 es \texttt{FE80::2E0:F9FF:FE98:8A07}.  
+	La dirección MAC es \texttt{00E0:F998:8A07}.
+	
+	El método EUI-64 (Extended Unique Identifier - 64 bits) permite generar automáticamente la parte de host de una dirección IPv6 a partir de la dirección MAC de la tarjeta de red del dispositivo.  
+	Este método se usa cuando se emplea SLAAC (Stateless Address Autoconfiguration) para configurar direcciones IPv6 sin un servidor DHCPv6.
+	
+	El proceso de conversión de una dirección MAC a un identificador EUI-64 sigue estos pasos:
+	
+	\begin{itemize}
+		\item Se toma la dirección MAC de 48 bits del dispositivo.
+		\item Se inserta el valor hexadecimal \texttt{0xFFFE} en el medio de la dirección MAC para extenderla a 64 bits.
+		\item Se modifica el séptimo bit del primer byte de la dirección MAC (Universal/Local bit) para indicar que la dirección ha sido modificada mediante EUI-64.
+	\end{itemize}
+	
+	\textbf{Cambio de Static a Automatic:}
+	
+	Al cambiar la configuración de IPv6 de Static a Automatic, la PC activa la función SLAAC (Stateless Address Autoconfiguration).
+	
+	SLAAC permite que un dispositivo obtenga automáticamente una dirección IPv6 sin necesidad de un servidor DHCPv6.  
+	Para esto, la PC necesita encontrar un router en la red que pueda proporcionarle la información necesaria.
+	
+	\subsection{\textbf{Análisis del mensaje RS (Router Solicitation)}}
+	
+	El mensaje Router Solicitation (RS) es una solicitud que la PC envía a todos los routers en la red para obtener información de configuración.\\
+	
+	\begin{bytefield}[bitwidth=1.2em]{32}
+		\bitbox{8}{\small TYPE: 0x85} & 
+		\bitbox{8}{\small CODE: 0x00} & 
+		\bitbox{16}{\small CHECKSUM: 0x0000} \\
+		\wordbox{1}{RESERVED} \\
+		\wordbox{1}{OPTION}
+	\end{bytefield}
+	
+	Explicación de los campos:
+	
+	\begin{itemize}
+		\item \textbf{TYPE (0x85)}: Indica que es un mensaje Router Solicitation.
+		\item \textbf{CODE (0x00)}: Siempre es 0 en este tipo de mensaje.
+		\item \textbf{CHECKSUM}: Usado para la verificación de integridad.
+		\item \textbf{RESERVED}: Campo reservado, debe ser cero.
+		\item \textbf{OPTION}: Puede incluir la dirección MAC del nodo que envía el mensaje.
+	\end{itemize}
+	
+	\subsection{\textbf{Análisis del mensaje RA (Router Advertisement)}}
+	
+	Cuando el router responde, envía un mensaje RA (Router Advertisement) con los siguientes datos:\\
+	
+	\begin{bytefield}[bitwidth=1.2em]{32}
+		\bitbox{8}{\small TYPE: 0x86} & 
+		\bitbox{8}{\small CODE: 0x00} & 
+		\bitbox{16}{\small CHECKSUM: 0x0000} \\
+		\bitbox{8}{\small Hop Limit: 0x40} & 
+		\bitbox{8}{\small RESERVED} & 
+		\bitbox{16}{\small Router Lifetime: 0x0708} \\
+		\wordbox{2}{Reachable Time: 0x00000000} \\
+		\wordbox{2}{Retrans Timer: 0x00000000}
+	\end{bytefield}
+	
+	Explicación de los campos:
+	
+	\begin{itemize}
+		\item \textbf{TYPE (0x86)}: Indica que es un mensaje Router Advertisement.
+		\item \textbf{CODE (0x00)}: Siempre es 0 en este mensaje.
+		\item \textbf{CHECKSUM}: Verificación de integridad del mensaje.
+		\item \textbf{Hop Limit (0x40)}: Valor recomendado para el campo TTL de los paquetes enviados.
+		\item \textbf{RESERVED}: Contiene banderas como "M" (Managed) y "O" (Other), usadas en DHCPv6.
+		\item \textbf{Router Lifetime (0x0708)}: Tiempo en el que el router puede ser la puerta de enlace predeterminada.
+		\item \textbf{Reachable Time (0x00000000)}: Tiempo en que un nodo es considerado alcanzable antes de verificar nuevamente.
+		\item \textbf{Retrans Timer (0x00000000)}: Intervalo entre retransmisiones de mensajes.
+	\end{itemize}
+	
+	\subsection{\textbf{Verificación de la dirección IPv6 asignada (GUA)}}
+	
+	Después de recibir el mensaje RA, la PC crea su dirección Global Unicast Address (GUA).  
+	Para ello, combina:
+	
+	\begin{itemize}
+		\item El prefijo de red recibido en el mensaje RA.
+		\item Un identificador de interfaz, que puede generarse con EUI-64 o de manera aleatoria.
+	\end{itemize}
+	
+	\section{\textbf{Neighbor Discovery}}
+	
+	\subsection{\textbf{Local Delivery}}
+	
+	\subsection{\textbf{Non Local Delivery}}
+	
+	\section{\textbf{Conclusiones}}
+	
+\end{document}
+
