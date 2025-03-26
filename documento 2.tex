@@ -1,0 +1,208 @@
+\documentclass[]{article}
+\usepackage{bytefield}
+\usepackage{geometry}
+\usepackage{hyperref}
+
+\geometry{a4paper, margin=1.4in}
+
+
+\title{Protocolo IPv6}
+\author{Santiago Ferrer Petit, Manuel García de la Vega}
+
+\begin{document}
+	
+	\maketitle
+	 \textbf{\href{https://github.com/santiferrerpetit/IPv6}{Repositorio de GitHub}}
+	
+	\section{\textbf{IPv6 SLAAC and EUI-64 Basics}}
+	
+	\subsection{\textbf{Configuración del router en IPv6}}
+	
+	Al buscar la LLA en la configuración de la PC0, encontramos que su dirección IPv6 es \texttt{FE80::2E0:F9FF:FE98:8A07}.  
+	La dirección MAC es \texttt{00E0:F998:8A07}.
+	
+	El método EUI-64 (Extended Unique Identifier - 64 bits) permite generar automáticamente la parte de host de una dirección IPv6 a partir de la dirección MAC de la tarjeta de red del dispositivo.  
+	Este método se usa cuando se emplea SLAAC (Stateless Address Autoconfiguration) para configurar direcciones IPv6 sin un servidor DHCPv6.
+	
+	El proceso de conversión de una dirección MAC a un identificador EUI-64 sigue estos pasos:
+	
+	\begin{itemize}
+		\item Se toma la dirección MAC de 48 bits del dispositivo.
+		\item Se inserta el valor hexadecimal \texttt{0xFFFE} en el medio de la dirección MAC para extenderla a 64 bits.
+		\item Se modifica el séptimo bit del primer byte de la dirección MAC (Universal/Local bit) para indicar que la dirección ha sido modificada mediante EUI-64.
+	\end{itemize}
+	
+	\textbf{Cambio de Static a Automatic:}
+	
+	Al cambiar la configuración de IPv6 de Static a Automatic, la PC activa la función SLAAC (Stateless Address Autoconfiguration).
+	
+	SLAAC permite que un dispositivo obtenga automáticamente una dirección IPv6 sin necesidad de un servidor DHCPv6.  
+	Para esto, la PC necesita encontrar un router en la red que pueda proporcionarle la información necesaria.
+	
+	\subsection{\textbf{Análisis del mensaje RS (Router Solicitation)}}
+	
+	El mensaje Router Solicitation (RS) es una solicitud que la PC envía a todos los routers en la red para obtener información de configuración.\\
+	
+	\begin{bytefield}[bitwidth=1.2em]{32}
+		\bitbox{8}{\small TYPE: 0x85} & 
+		\bitbox{8}{\small CODE: 0x00} & 
+		\bitbox{16}{\small CHECKSUM: 0x0000} \\
+		\wordbox{1}{RESERVED} \\
+		\wordbox{1}{OPTION}
+	\end{bytefield}
+	
+	Explicación de los campos:
+	
+	\begin{itemize}
+		\item \textbf{TYPE (0x85)}: Indica que es un mensaje Router Solicitation.
+		\item \textbf{CODE (0x00)}: Siempre es 0 en este tipo de mensaje.
+		\item \textbf{CHECKSUM}: Usado para la verificación de integridad.
+		\item \textbf{RESERVED}: Campo reservado, debe ser cero.
+		\item \textbf{OPTION}: Puede incluir la dirección MAC del nodo que envía el mensaje.
+	\end{itemize}
+	
+	\subsection{\textbf{Análisis del mensaje RA (Router Advertisement)}}
+	
+	Cuando el router responde, envía un mensaje RA (Router Advertisement) con los siguientes datos:\\
+	
+	\begin{bytefield}[bitwidth=1.2em]{32}
+		\bitbox{8}{\small TYPE: 0x86} & 
+		\bitbox{8}{\small CODE: 0x00} & 
+		\bitbox{16}{\small CHECKSUM: 0x0000} \\
+		\bitbox{8}{\small Hop Limit: 0x40} & 
+		\bitbox{8}{\small RESERVED} & 
+		\bitbox{16}{\small Router Lifetime: 0x0708} \\
+		\wordbox{2}{Reachable Time: 0x00000000} \\
+		\wordbox{2}{Retrans Timer: 0x00000000}
+	\end{bytefield}
+	
+	Explicación de los campos:
+	
+	\begin{itemize}
+		\item \textbf{TYPE (0x86)}: Indica que es un mensaje Router Advertisement.
+		\item \textbf{CODE (0x00)}: Siempre es 0 en este mensaje.
+		\item \textbf{CHECKSUM}: Verificación de integridad del mensaje.
+		\item \textbf{Hop Limit (0x40)}: Valor recomendado para el campo TTL de los paquetes enviados.
+		\item \textbf{RESERVED}: Contiene banderas como "M" (Managed) y "O" (Other), usadas en DHCPv6.
+		\item \textbf{Router Lifetime (0x0708)}: Tiempo en el que el router puede ser la puerta de enlace predeterminada.
+		\item \textbf{Reachable Time (0x00000000)}: Tiempo en que un nodo es considerado alcanzable antes de verificar nuevamente.
+		\item \textbf{Retrans Timer (0x00000000)}: Intervalo entre retransmisiones de mensajes.
+	\end{itemize}
+	
+	\subsection{\textbf{Verificación de la dirección IPv6 asignada (GUA)}}
+	
+	Después de recibir el mensaje RA, la PC crea su dirección Global Unicast Address (GUA).  
+	Para ello, combina:
+	
+	\begin{itemize}
+		\item El prefijo de red recibido en el mensaje RA.
+		\item Un identificador de interfaz, que puede generarse con EUI-64 o de manera aleatoria.
+	\end{itemize}
+	
+	\section{\textbf{Neighbor Discovery}}
+	
+	\subsection{\textbf{Local Delivery}}
+	
+	\subsubsection{\textbf{P1}}
+	Los PDU NDP están presentes porque son los que determinan que vecinos tiene la pc y sabe con qué medios comunicarse.
+	\subsubsection{\textbf{P2}}
+	Este mensaje es un mensaje de echo icmpv6 128 que vuelve a la pc0 porque no se saben los vecinos que tiene para que la pc por lo que recurre al protocolo ndp y descubre sus vecinos.
+	\subsubsection{\textbf{P3}}
+	En el direccionamiento de L2 y L3 cambia la intención, se manda un paquete de solicitud de reconocimiento de vecinos al único puerto disponible por medio de un multicast.
+	\subsubsection{\textbf{P4}}
+	No hay diferencias entre las entradas y salidas en L2, aunque los 2 procesos detectan que los paquetes tienen dirección multicast uno lo recibe y otro lo envía.Además en el segundo proceso, el paquete es desencapsulado en su entrada y encapsulado de nuevo en su salida.Esto indica que el switch solo reenvia los paquetes.
+	
+	\subsubsection{\textbf{P5}}
+	
+	DEST ADDR:3333.FF00.000B
+	
+	SRC IP:2001:DB8:ACAD:1::B 
+	
+	DST IP:FF02::1:FF00:B
+	
+	\subsubsection{\textbf{P6}}
+	
+	En out layers no hay información porque el mensaje entra siendo ndp y pasa a ser icmpv6 por lo que en el ingreso de información a como ndp y al egreso da información como icmpv6.
+	
+	\subsubsection{\textbf{P7}}
+	
+	Podemos afirmar que PC0 tiene toda la información para el ping porque tiene la respuesta icmpv6, la respuesta ndp  y la respuesta al ping.
+	
+	\subsubsection{\textbf{P8}}
+	
+	El mensaje es un mesaje echo icmpv6
+	
+	\subsubsection{\textbf{P9}}
+	
+	no hay mensajes de tipo ndp porque la pc0 ya conoce sus vecinos por lo que no es necesario mandar una solicitud ndp.
+	
+	
+	\subsection{\textbf{Non Local Delivery}}
+	
+	\subsubsection{\textbf{P4}}
+	
+	Su dirección ipv6 de origen es:2001:DB8:ACAD:1::1 y es un mensaje de tipo solicitud de vecino.
+	
+	\subsubsection{\textbf{P5}}
+	
+	Las direcciones de destino que encapsula en la trama son la que ya obtuvo de la solicitud ndp y registró en su tabla de vecinos.
+	
+	\subsubsection{\textbf{P7}}
+	
+	La información que falta es la dirección que proporciona la pc2 por medio del mensaje de ndp que se va a enviar cuando el icmpv6 llegue a la pc que pregunta por el ping.
+	
+	\subsubsection{\textbf{P9}}
+	
+	No hubo eventos NDP. La direccion MAC a la que se envia es:000D.BD9D.BC02 y esto se envia así porque es la direccion MAC de la interfaz del router correspondiente que ya fue correspondida por medio de los mensajes anteriores NDP en la tabla de vecinos del router.
+	
+	\subsubsection{\textbf{P10}}
+	
+	1:Aparecen 2 direcciones en la lista.
+	2:Estas direcciones estan asociadas con los switches
+	3:No, en la lista se registran solo los switches.Uno de estos si tiene acceso a la PC1 pero el router no tiene acceso directo a esta.
+	
+	\subsubsection{\textbf{P11}}
+	
+	Nuevamente no hay solicitudes NDP, se repite la secuencia que pasó con el ping que hicimos luego de reiniciar el escenario. 
+	
+	
+	\section{\textbf{Conclusiones}}
+	
+	
+	\subsection{\textbf{1}}
+	
+	\subsubsection{\textbf{Ventajas y desventajas de SLAAC}}
+	
+	\begin{itemize}
+		\item Ventajas: No requiere configuración manual, simplifica la administración de red.
+		\item Desventajas: No configura DNS automáticamente (se necesita DHCPv6).
+	\end{itemize}
+	
+	\subsection{\textbf{2}}
+	
+	\subsubsection{\textbf{Mensajes usados en configuración vs descubrimiento}}
+	
+	\begin{itemize}
+		\item Configuración: RS (Router Solicitation) y RA (Router Advertisement).
+		\item Descubrimiento: NS (Neighbor Solicitation) y NA (Neighbor Advertisement).
+		\item Estos mensajes aseguran que un dispositivo en una red IPv6 pueda configurarse automáticamente y descubrir a otros dispositivos vecinos sin necesidad de ARP ni configuraciones manuales.
+	\end{itemize}
+	\subsection{\textbf{3}}
+	
+	Un dispositivo requiere el proceso de detección de vecinos cuando necesita configurar su conjunto de ips automáticas y no tiene conocimiento de las direcciones MAC de los dispositivos que la rodean ni qué dispositivos puede alcanzar en su red.
+	
+	\subsection{\textbf{4}}
+	
+	4:Al segmentar la red, los routers facilitan el proceso de detección de vecinos haciendo que este no se extienda por una red más grande.Además, con su tabla de vecinos, las solicitudes NDP que ya se hicieron, se guardan y no es necesario que se vuelvan a hacer antes del tiempo que dura una dirección en la tabla.
+	
+	\subsection{\textbf{5}}
+	
+	5:Al usar mensajes de multicast, el ipv6 minimiza el impacto del proceso ND en el host.
+	
+	\subsection{\textbf{6}}
+	
+	6:Los paquetes de neightbor discovery no se propagan por las redes de no ser necesario, si el paquete se encuentra en una LAN remota esto se permite pero si no, antes de salir de la red, el paquete es descartado.
+	
+	
+\end{document}
+
